@@ -6,6 +6,7 @@ import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import javax.annotation.Nonnull;
 import java.util.logging.Level;
 
+@SuppressWarnings("unused")
 public class ExamplePlugin extends JavaPlugin {
     private static ExamplePlugin instance;
 
