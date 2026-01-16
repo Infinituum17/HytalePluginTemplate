@@ -1,17 +1,7 @@
 import org.gradle.api.Project
 import org.gradle.api.GradleException
 import org.gradle.api.file.FileCollection
-
-
-fun Project.getRunDirectory(): String {
-    val directory = file("$projectDir/run")
-
-    if(!directory.exists()) {
-        directory.mkdir()
-    }
-
-    return directory.absolutePath
-}
+import java.io.File
 
 class HytalePluginConfig(private val project: Project) {
     val javaVersion: String
@@ -56,7 +46,24 @@ class HytalePluginConfig(private val project: Project) {
         return project.files("${getHytaleDirectory()}/Server/HytaleServer.jar")
     }
 
-    fun getHytaleMainClass(): String {
+    fun generateConfiguration() {
+        val dir = project.file(".idea/runConfigurations")
+        dir.mkdirs()
+
+        val file = File(dir, "HytaleServer.xml")
+        file.writeText("""
+        <component name="ProjectRunConfigurationManager">
+          <configuration default="false" name="HytaleServer" type="Application" factoryName="Application">
+            <module name="${project.name}.main" />
+            <option name="MAIN_CLASS_NAME" value="${getHytaleMainClass()}" />
+            <option name="PROGRAM_PARAMETERS" value="--allow-op --disable-sentry --assets=${getHytaleAssets().singleFile.absolutePath} --mods=build/resources/main --auth-mode=authenticated" />
+            <option name="WORKING_DIRECTORY" value="${'$'}PROJECT_DIR$/run" />
+          </configuration>
+        </component>
+        """.trimIndent())
+    }
+
+    private fun getHytaleMainClass(): String {
         return "com.hypixel.hytale.Main"
     }
 
