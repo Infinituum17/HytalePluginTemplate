@@ -23,7 +23,7 @@ dependencies {
 tasks.processResources {
     inputs.properties(config.manifest)
 
-    filesMatching("manifest.json", { expand(config.manifest) })
+    filesMatching("manifest.json") { expand(provider { config.manifest }.get()) }
 }
 
 tasks.jar {
