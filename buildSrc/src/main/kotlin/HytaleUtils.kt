@@ -1,6 +1,7 @@
 import org.gradle.api.Project
 import org.gradle.api.GradleException
 import org.gradle.api.file.FileCollection
+import org.gradle.internal.os.OperatingSystem
 import java.io.File
 
 class HytalePluginConfig(private val project: Project) {
@@ -46,21 +47,57 @@ class HytalePluginConfig(private val project: Project) {
         return project.files("${getHytaleDirectory()}/Server/HytaleServer.jar")
     }
 
-    fun generateConfiguration() {
-        val dir = project.file(".idea/runConfigurations")
-        dir.mkdirs()
+    fun generateConfiguration(platform: Platform) {
+        when (platform) {
+            Platform.INTELLIJIDEA -> {
+                val dir = project.file(".idea/runConfigurations")
+                dir.mkdirs()
 
-        val file = File(dir, "HytaleServer.xml")
-        file.writeText("""
-        <component name="ProjectRunConfigurationManager">
-          <configuration default="false" name="HytaleServer" type="Application" factoryName="Application">
-            <module name="${project.name}.main" />
-            <option name="MAIN_CLASS_NAME" value="${getHytaleMainClass()}" />
-            <option name="PROGRAM_PARAMETERS" value="--allow-op --disable-sentry --assets=${getHytaleAssets().singleFile.absolutePath} --mods=build/resources/main --auth-mode=authenticated" />
-            <option name="WORKING_DIRECTORY" value="${'$'}PROJECT_DIR$/run" />
-          </configuration>
-        </component>
-        """.trimIndent())
+                val file = File(dir, "HytaleServer.xml")
+                file.writeText("""
+                <component name="ProjectRunConfigurationManager">
+                  <configuration default="false" name="HytaleServer" type="Application" factoryName="Application">
+                    <module name="${project.name}.main" />
+                    <option name="MAIN_CLASS_NAME" value="${getHytaleMainClass()}" />
+                    <option name="PROGRAM_PARAMETERS" value="${getExecutionParams()}" />
+                    <option name="WORKING_DIRECTORY" value="${'$'}PROJECT_DIR$/run" />
+                  </configuration>
+                </component>
+                """.trimIndent())
+            }
+            Platform.VSCODE -> {
+                val dir = project.file(".vscode")
+                dir.mkdirs()
+
+                val file = File(dir, "launch.json")
+                file.writeText("""
+                {
+                    "version": "0.2.0",
+                    "configurations": [
+                        {
+                            "type": "java",
+                            "name": "HytaleServer",
+                            "request": "launch",
+                            "mainClass": "${getHytaleMainClass()}",
+                            "args": "${getExecutionParams(correctBackslashes = true)}",
+                            "cwd": "${'$'}{workspaceFolder}/run"
+                        }
+                    ]
+                }
+                """.trimIndent())
+            }
+        }
+    }
+
+    private fun getExecutionParams(correctBackslashes: Boolean = false): String {
+        var assets = this.getHytaleAssets().singleFile.absolutePath
+        val os = OperatingSystem.current()
+
+        if (os.isWindows && correctBackslashes) {
+            assets = assets.replace("\\", "/")
+        }
+
+        return "--allow-op --disable-sentry --assets=${assets} --mods=build/resources/main --auth-mode=authenticated";
     }
 
     private fun getHytaleMainClass(): String {
@@ -73,9 +110,37 @@ class HytalePluginConfig(private val project: Project) {
     }
 
     private fun getHytaleDirectory(): String {
-        val hytaleDir = project.providers.gradleProperty("hytale_directory")
-            .getOrElse("${System.getProperty("user.home")}/AppData/Roaming/Hytale/install")
+        val os = OperatingSystem.current()
+        var hytaleDir = project.providers.gradleProperty("hytale_directory")
+            .getOrElse(System.getProperty("user.home"))
 
-        return "$hytaleDir/$hytaleVersionType/package/game/$hytaleVersion"
+        if (os.isWindows) {
+            hytaleDir += "/AppData/Roaming/Hytale"
+        } else if (os.isMacOsX) {
+            hytaleDir += "/Library/Application Support/Hytale"
+        } else if (os.isLinux) {
+            val dataDir = "$hytaleDir/.var/app/com.hypixel.HytaleLauncher/data/Hytale"
+
+            if (project.file(dataDir).exists()) {
+                hytaleDir = dataDir
+            } else {
+                hytaleDir += "/.local/share/Hytale"
+            }
+        } else {
+            throw GradleException("Your operating system is not supported, please specify your hytale directory in your gradle.properties file")
+        }
+
+        hytaleDir += "/install/$hytaleVersionType/package/game/$hytaleVersion"
+
+        if (!File(hytaleDir).exists()) {
+            throw GradleException("Could not determine your Hytale installation directory, please specify your hytale directory in your gradle.properties file")
+        }
+
+        return hytaleDir
+    }
+
+    enum class Platform {
+        VSCODE,
+        INTELLIJIDEA
     }
 }

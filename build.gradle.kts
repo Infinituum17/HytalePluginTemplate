@@ -37,8 +37,12 @@ tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
 }
 
+tasks.register("generateVSCodeConfiguration") {
+    config.generateConfiguration(HytalePluginConfig.Platform.VSCODE)
+}
+
 afterEvaluate {
     if(System.getProperty("idea.active") == "true") {
-        config.generateConfiguration()
+        config.generateConfiguration(HytalePluginConfig.Platform.INTELLIJIDEA)
     }
 }
