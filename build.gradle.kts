@@ -1,7 +1,3 @@
-import java.util.zip.ZipEntry
-import java.util.zip.ZipFile
-import java.util.zip.ZipOutputStream
-
 plugins {
     java
 }
