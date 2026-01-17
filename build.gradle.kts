@@ -48,9 +48,26 @@ tasks.register("generateVSCodeConfiguration") {
     config.generateConfiguration(HytalePluginConfig.Platform.VSCODE)
 }
 
+val unzipHytaleServerJar by tasks.registering(Copy::class) {
+    from(zipTree(config.getHytaleServerJar().singleFile)) {
+        include("com/hypixel/hytale/**")
+    }
+    into(layout.buildDirectory.dir("generated/sources/fernflower/tmp"))
+}
+
 tasks.register<JavaExec>("decompileJar") {
-    val inputJar = config.getHytaleServerJar().singleFile
+    dependsOn(unzipHytaleServerJar)
+
+    val inputDir = layout.buildDirectory.dir("generated/sources/fernflower/tmp")
     val outputDir = layout.buildDirectory.dir("generated/sources/fernflower")
+
+    javaLauncher.set(
+        javaToolchains.launcherFor {
+            languageVersion.set(
+                java.toolchain.languageVersion.get()
+            )
+        }
+    )
 
     group = "decompilation"
     description = "Decompile with FernFlower"
@@ -60,17 +77,21 @@ tasks.register<JavaExec>("decompileJar") {
         "org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler"
     )
 
+    jvmArgs("-Xmx6G", "-Xms2G")
+
     args(
-        "-log=ERROR",
-        "-nls=true",
-        "-dgs=true",
-        "-rsy=true",
-        inputJar,
-        outputDir.get().asFile.absolutePath
+        "-dgs=1",
+        "-asc=1",
+        inputDir.get(),
+        outputDir.get()
     )
 
-    inputs.file(inputJar)
+    inputs.dir(inputDir)
     outputs.dir(outputDir)
+
+    doLast {
+        inputDir.get().asFile.deleteRecursively()
+    }
 }
 
 afterEvaluate {
