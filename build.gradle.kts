@@ -1,7 +1,12 @@
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
+
 plugins {
     java
 }
 
+val fernflower: Configuration by configurations.creating
 val config = HytalePluginConfig(project)
 
 java {
@@ -14,10 +19,16 @@ java {
 
 repositories {
     mavenCentral()
+
+    maven {
+        url = uri("https://www.jetbrains.com/intellij-repository/releases")
+    }
 }
 
 dependencies {
     implementation(config.getHytaleServerJar())
+
+    fernflower("com.jetbrains.intellij.java:java-decompiler-engine:253.28294.334")
 }
 
 tasks.processResources {
@@ -39,6 +50,31 @@ tasks.withType<JavaCompile> {
 
 tasks.register("generateVSCodeConfiguration") {
     config.generateConfiguration(HytalePluginConfig.Platform.VSCODE)
+}
+
+tasks.register<JavaExec>("decompileJar") {
+    val inputJar = config.getHytaleServerJar().singleFile
+    val outputDir = layout.buildDirectory.dir("generated/sources/fernflower")
+
+    group = "decompilation"
+    description = "Decompile with FernFlower"
+
+    classpath = configurations["fernflower"]
+    mainClass.set(
+        "org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler"
+    )
+
+    args(
+        "-log=ERROR",
+        "-nls=true",
+        "-dgs=true",
+        "-rsy=true",
+        inputJar,
+        outputDir.get().asFile.absolutePath
+    )
+
+    inputs.file(inputJar)
+    outputs.dir(outputDir)
 }
 
 afterEvaluate {
